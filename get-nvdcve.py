@@ -10,6 +10,10 @@ import zipfile
 
 logging.basicConfig(filename="nvdcve.log", level=logging.DEBUG, format="%(asctime)s: %(message)s")
 
+title = "GET-NVDCVE"
+print("=" * (len(title) + 4))
+print("| " + title + " |")
+print("=" * (len(title) + 4))
 
 # Parse the command line arguments
 parser = argparse.ArgumentParser()
