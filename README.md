@@ -18,4 +18,4 @@ python vulncenter.py `<option>`
 
 * "-f", "--output-file":"Filename to use for the output file"
 
-"-g", "--debug":"Enable debug mode"
+* "-g", "--debug":"Enable debug mode"
