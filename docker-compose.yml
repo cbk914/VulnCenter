@@ -7,8 +7,8 @@ services:
       - "6379:6379"
     volumes:
       - data:/data
-  getsploit:
-    image: getsploit
+  vulncenter:
+    image: vulncenter:latest
     depends_on:
       - redis
     environment:
