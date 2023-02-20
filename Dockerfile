@@ -7,8 +7,10 @@ RUN apt-get update && apt-get install -y redis-server python3 python3-pip
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 
-# Copy script and entrypoint
+# Copy scripts and entrypoint
 COPY getsploit.py /usr/local/bin/getsploit
+COPY get-nvdcve.py /usr/local/bin/get-nvdcve
+COPY vulncenter.py /usr/local/bin/vulncenter
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
