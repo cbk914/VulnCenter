@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  redis:
+    build: .
+    ports:
+      - "6379:6379"
+    volumes:
+      - data:/data
+  getsploit:
+    image: getsploit
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+
+volumes:
+  data:
