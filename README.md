@@ -12,7 +12,10 @@ How to use
 
 python vulncenter.py `<option>`
 
-"-s", "--search":"Search string to use in the databases"
-"-o", "--output":Format to use for the output file (txt, xml, json)
-"-f", "--output-file":"Filename to use for the output file"
+* "-s", "--search":"Search string to use in the databases"
+
+* "-o", "--output":Format to use for the output file (txt, xml, json)
+
+* "-f", "--output-file":"Filename to use for the output file"
+
 "-g", "--debug":"Enable debug mode"
