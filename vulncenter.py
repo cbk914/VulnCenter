@@ -1,11 +1,14 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import argparse
 import os
 import requests
-import sqlite3
 import json
 import gzip
 import shutil
 import zipfile
+import redis
 
 def download_database(url, filename):
     """
@@ -31,19 +34,18 @@ def decompress_database(filename):
     else:
         raise ValueError("Unsupported file format: " + filename)
     
-def search_database(db_filename, search_string):
+def search_database(r, search_string):
     """
     Search the specified database for the given search string.
     """
-    # Connect to the database
-    conn = sqlite3.connect(db_filename)
-    c = conn.cursor()
-    
     # Execute the search query
-    c.execute(f"SELECT * FROM vulnerabilities WHERE description LIKE '%{search_string}%'")
+    results = []
+    for key in r.scan_iter("vulnerability:*"):
+        if search_string in r.hget(key, "description").decode():
+            results.append(r.hgetall(key))
     
     # Return the search results
-    return c.fetchall()
+    return results
 
 def save_results(results, output_format, output_filename):
     """
@@ -65,50 +67,36 @@ def save_results(results, output_format, output_filename):
         xml_str = "<results>\n"
         for result in results:
             xml_str += "  <result>" + str(result) + "</result>\n"
-            
-def update_database(db_name, url, filename):
+    
+def update_database(r, url, filename):
     """
     Download and update the specified database.
     """
     # Download the updated database
-    r = requests.get(url)
-    r.raise_for_status()
-    with open(filename, "wb") as f:
-        f.write(r.content)
-        
+    r.flushall()
+    r.set("db_url", url)
+    r.set("db_filename", filename)
+    download_database(url, filename)
+    
     # Decompress the gzip-compressed database, if necessary
     if filename.endswith(".gz"):
-        with gzip.open(filename, "rb") as f_in:
-            with open(filename[:-3], "wb") as f_out:
-                shutil.copyfileobj(f_in, f_out)
-        os.remove(filename)
+        decompress_database(filename)
         filename = filename[:-3]
     
-    # Connect to the database
-    conn = sqlite3.connect(db_name)
-    c = conn.cursor()
-    
-    # Delete all rows from the existing table
-    c.execute("DELETE FROM vulnerabilities")
-    
-    # Insert data from the downloaded database into the existing table
-    if db_name == "cve.db":
-        # Parse the XML data and insert it into the table
+    # Insert data from the downloaded database into the new database
+    if filename == "cve-allitems-cvrf.xml":
+        # Parse the XML data and insert it into the database
         # (code not shown)
         pass
-    elif db_name == "capec.db":
-        # Parse the XML data and insert it into the table
+    elif filename.startswith("capec") and filename.endswith(".csv"):
+        # Parse the CSV data and insert it into the database
         # (code not shown)
         pass
-    elif db_name == "exploitdb.db":
-        # Parse the CSV data and insert it into the table
+    elif filename.startswith("exploitdb") and filename.endswith(".csv"):
+        # Parse the CSV data and insert it into the database
         # (code not shown)
         pass
     
-    # Save the changes and close the connection
-    conn.commit()
-    conn.close()
-
 def debug(debug_mode, message):
     """
     Print the specified message if debug mode is enabled.
@@ -152,28 +140,16 @@ decompress_database("capec333.zip")
 decompress_database("capec658.zip")
 decompress_database("capec659.zip")
 
-# Connect to the new database
-conn = sqlite3.connect("vulnerabilities.db")
-c = conn.cursor()
+# Connect to Redis
+redis_client = redis.Redis(host='localhost', port=6379, db=0)
 
-# Create tables for the different databases
-c.execute('''CREATE TABLE cve (id text, description text)''')
-c.execute('''CREATE TABLE capec (id text, name text, description text)''')
-c.execute('''CREATE TABLE exploitdb (id text, description text, type text)''')
-
-# Insert data from the downloaded databases into the new database
-for row in search_database("cve-allitems-cvrf.xml", "*"):
-    c.execute("INSERT INTO cve VALUES (?, ?)", row)
-for row in search_database("capec*.csv", "*"):
-    c.execute("INSERT INTO capec VALUES (?, ?, ?)", row)
-for row in search_database("exploitdb-*.csv", "*"):
-    c.execute("INSERT INTO exploitdb VALUES (?, ?, ?)", row)
-for row in search_database("exploitdb-GHDB.xml", "*"):
-    c.execute("INSERT INTO exploitdb VALUES (?, ?, ?)", row)    
-
-# Save the changes and close the connection
-conn.commit()
-conn.close()
+# Check if the databases need to be updated
+if r.get("db_url") != "https://nvd.nist.gov/feeds/xml/cve/2.0/nvdcve-2.0-recent.xml.gz":
+    update_database(r, "https://nvd.nist.gov/feeds/xml/cve/2.0/nvdcve-2.0-recent.xml.gz", "cve.xml.gz")
+if r.get("db_url") != "https://capec.mitre.org/data/xml/capec_v3.3.1.xml":
+    update_database(r, "https://capec.mitre.org/data/xml/capec_v3.3.1.xml", "capec.xml")
+if r.get("db_url") != "https://github.com/offensive-security/exploitdb/raw/master/files.csv":
+    update_database(r, "https://github.com/offensive-security/exploitdb/raw/master/files.csv", "exploitdb.csv")
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description="Download and search vulnerabilities databases.")
@@ -185,17 +161,16 @@ parser.add_argument("-d", "--debug", action="store_true", help="Enable debug mod
 parser.add_argument("-h", "--help", action="help", help="Show this help message and exit")
 args = parser.parse_args()
 
+# Connect to Redis
+redis_client = redis.Redis(host='localhost', port=6379, db=0)
+
 # Search the databases
 results = []
-for db_filename in ["cve.db", "capec.db", "exploitdb.db"]:
-    results += search_database(db_filename, args.search)
+for vulnerability_type in ["cve", "capec", "exploitdb"]:
+    results += search_database(redis_client, vulnerability_type, args.search)
 
 # Check if the databases need to be updated
 if args.update:
-    update_database("cve.db", "https://nvd.nist.gov/feeds/xml/cve/2.0/nvdcve-2.0-recent.xml.gz", "cve.xml.gz")
-    update_database("capec.db", "https://capec.mitre.org/data/xml/capec_v3.3.1.xml", "capec.xml")
-    update_database("exploitdb.db", "https://github.com/offensive-security/exploitdb/raw/master/files.csv", "exploitdb.csv")
-
-# Save results
-if args.output_file:
-    save_results(results, args.output, args.output_file)
+    update_database(redis_client, "cve", "https://nvd.nist.gov/feeds/xml/cve/2.0/nvdcve-2.0-recent.xml.gz", "cve.xml.gz")
+    update_database(redis_client, "capec", "https://capec.mitre.org/data/xml/capec_v3.3.1.xml", "capec.xml")
+    update_database(redis_client, "exploitdb", "https://github.com/offensive-security/exploitdb/raw/master/files.csv", "exploitdb.csv")
