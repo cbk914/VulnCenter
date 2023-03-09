@@ -8,4 +8,4 @@ Application to manage vulnerability databases
 
 # Agreements
 
-[Vulners](https://vulners.com)
+[Vulners](https://vulners.com) for supporting this project.
