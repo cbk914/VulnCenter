@@ -18,6 +18,7 @@ def main():
     print("| " + title + " |")
     print("=" * (len(title) + 4))
 
+    # Parse the command line arguments
     parser = argparse.ArgumentParser()
     parser.add_argument("-y", "--year", type=str, help="Download data for a specific year (yyyy) or range (yyyy-yyyy)")
     args = parser.parse_args()
@@ -33,12 +34,19 @@ def main():
         os.makedirs("nvd")
 
     existing_hashes = read_existing_hashes()
+    years = None
 
     # Check if the input is a range or an individual year
     if args.year:
         years = process_year_input(args.year)
 
-    for filename in re.findall("nvdcve-1.1-[0-9]*\.json\.zip", r.text):
+    filenames = sorted(re.findall("nvdcve-1.1-[0-9]*\.json\.zip", r.text), reverse=True)
+
+    if not years:
+        # Download only the latest feed if no year is specified
+        filenames = [filenames[0]]
+
+    for filename in filenames:
         file_year_match = re.search(r'\d{4}', filename)
         if file_year_match:
             file_year = int(file_year_match.group(0))
@@ -50,25 +58,14 @@ def main():
             continue
         download_and_extract_file(filename)
 
-        metadata = download_metadata(filename)
-        if metadata is None:
-            continue
-
-        if metadata['SHA-256'] in existing_hashes.values():
-            print(f"{filename} already exists with the same hash. Skipping download.")
-            continue
-
-        remove_zip_file("nvd/" + filename)
-        update_hashes_file(existing_hashes, filename, metadata['SHA-256'])
-
     show_summary(existing_hashes)
-    
+
 def process_year_input(year_input):
     if '-' in year_input:
         start_year, end_year = map(int, year_input.split('-'))
         return list(range(start_year, end_year + 1))
     else:
-        return [int(year_input)]    
+        return [int(year_input)]
 
 def download_metadata(filename):
     try:
@@ -168,13 +165,11 @@ def show_summary(existing_hashes):
             summary_file.write("Filename".ljust(30) + "Size".rjust(20) + "sha256".rjust(50) + "\n")
             summary_file.write("-" * 120 + "\n")
             
-            with open("hashes.txt", 'w') as f_out:
-                for filename, file_hash in existing_hashes.items():
-                    file_path = "nvd/" + filename
-                    file_size = os.path.getsize(file_path)
-                    print(filename.ljust(30), str(file_size).rjust(20), file_hash.rjust(50))
-                    f_out.write("%s\t%d\t%s\n" % (filename, file_size, file_hash))
-                    summary_file.write(filename.ljust(30) + str(file_size).rjust(20) + file_hash.rjust(50) + "\n")
+            for filename, file_hash in existing_hashes.items():
+                file_path = "nvd/" + filename
+                file_size = os.path.getsize(file_path)
+                print(filename.ljust(30), str(file_size).rjust(20), file_hash.rjust(50))
+                summary_file.write(filename.ljust(30) + str(file_size).rjust(20) + file_hash.rjust(50) + "\n")
             print("-" * 120)
             summary_file.write("-" * 120 + "\n")
     except FileNotFoundError as e:
@@ -183,6 +178,6 @@ def show_summary(existing_hashes):
     except Exception as e:
         print(f"Error: {e}")
         logging.error(f"Error: {e}")
-
+        
 if __name__ == "__main__":
-    main()
+    main()        
