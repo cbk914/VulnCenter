@@ -1,0 +1,11 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+*.log
+*.db
+*.zip
+*.tar
+*.gz
+*.bz2
+*.xz
