@@ -1,6 +1,9 @@
+<<<<<<< HEAD
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # Author: cbk914
+=======
+>>>>>>> testing
 import requests
 import re
 import sys
