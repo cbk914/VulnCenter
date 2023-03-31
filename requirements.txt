@@ -1,5 +1,5 @@
 clint==0.5.1
-redis==4.5.3
+redis==4.5.4
 vulners==1.4.4
 texttable==1.6.4
 six==1.16.0
