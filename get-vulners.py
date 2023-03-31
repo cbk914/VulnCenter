@@ -14,6 +14,10 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+def save_api_key_to_env(api_key):
+    with open(".env", "a") as env_file:
+        env_file.write(f"VULNERS_API_KEY={api_key}\n")
+
 def download_vulners_links(api_key):
     links = [
         "https://vulners.com/api/v3/archive/collection/?type=exploitpack",
@@ -70,5 +74,6 @@ if __name__ == "__main__":
             sys.exit(1)
     else:
         api_key = args.api_key
+        save_api_key_to_env(api_key)
 
     download_vulners_links(api_key)
