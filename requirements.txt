@@ -1,5 +1,28 @@
-clint==0.5.1
+# VulnCenter runtime dependencies.
+#
+# Added the four packages the code imports but this manifest omitted. Without
+# them the container image could not build/run:
+#   requests      - vulncenter.py:6, getvulners.py:4, get-vulners.py:5,
+#                   get-nvdcve.py:5
+#   flask         - vulncenter-wui.py:1
+#   docker        - vulncenter-wui.py:2
+#   python-dotenv - get-vulners.py:7 (`from dotenv import load_dotenv`)
+#
+# Removed: none of the pre-existing pins are unused, but note that clint is
+# abandoned (last release 2015-10-02) and is only imported by getsploit.py:11.
+# It is kept pinned so getsploit.py remains runnable and is not pulled in by
+# default; it also drags in the junk `args` package transitively.
+requests==2.31.0
+python-dotenv==1.0.1
 redis==4.5.4
 vulners==1.4.4
 texttable==1.6.4
 six==1.16.0
+flask==2.2.5
+# Werkzeug 3.0 removed `__version__`, which flask 2.2.5 reads in
+# flask/testing.py:116 -> AttributeError at runtime. Must stay <3.
+Werkzeug>=2.2.2,<3
+docker==7.1.0
+
+# Legacy: abandoned since 2015, required only by getsploit.py.
+clint==0.5.1
